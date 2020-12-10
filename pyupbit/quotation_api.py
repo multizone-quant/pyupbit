@@ -5,6 +5,17 @@ import sys
 from pyupbit.request_api import _call_public_api
 
 
+
+# inpit '121010'
+# output '12:10:10'
+def get_time_format(tm) :
+    return tm[0:2] + ':' + tm[2:4] + ':' + tm[4:]
+
+# inpit '20201201'
+# output '12/10/10'
+def get_date_format(tm) :
+    return tm[0:4] + '-' + tm[4:6] + '-' + tm[6:]
+
 def get_tickers(fiat="ALL"):
     """
     마켓 코드 조회 (업비트에서 거래 가능한 마켓 목록 조회)
@@ -101,8 +112,9 @@ def get_daily_ohlcv_from_base(ticker="KRW-BTC", base=0):
         print(x.__class__.__name__)
         return None
 
-
-def get_current_price(ticker="KRW-BTC"):
+# updated by me 2020/12/06
+# ticker를 list로 받음, 복수종목 현재가
+def get_current_price(ticker=["KRW-BTC"]):
     """
     최종 체결 가격 조회 (현재가)
     :param ticker:
@@ -114,9 +126,9 @@ def get_current_price(ticker="KRW-BTC"):
 
         if contents is not None:
             # 여러 마케을 동시에 조회
-            if isinstance(ticker, list):
+            if isinstance(contents[0], list):
                 ret = {}
-                for content in contents:
+                for content in contents[0]:
                     market = content['market']
                     price = content['trade_price']
                     ret[market] = price
@@ -129,6 +141,38 @@ def get_current_price(ticker="KRW-BTC"):
         print(x.__class__.__name__)
         return None
 
+
+# added by me 2020/12/06
+# upbit에서 주는 ticker의 현재 가격 전체를 돌려준다.
+def get_current_ticker_info(ticker=["KRW-BTC"]):
+    """
+    최종 체결 가격 조회 (현재가)
+    :param ticker:
+    :return:
+    """
+    try:
+        url = "https://api.upbit.com/v1/ticker"
+        contents = _call_public_api(url, markets=ticker)
+
+        if contents is not None:
+            # 여러 마케을 동시에 조회
+            if isinstance(contents[0], list):
+                ret = {}
+                for content in contents[0]:
+                    market = content['market']
+                    content['trade_time_kst'] = get_time_format(content['trade_time_kst'])
+                    content['trade_time'] = get_time_format(content['trade_time'])
+                    content['trade_date_kst'] = get_date_format(content['trade_date_kst'])
+                    ret[market] = content
+                return [ret]
+            else:
+                return contents[0]['trade_price']
+        else:
+            return [{'error':{'message':'unknown error'}}]
+    except Exception as x:
+        print(x.__class__.__name__)
+        return [{'error':{'message':x}}]
+        return None
 
 def get_orderbook(tickers="KRW-BTC"):
     '''
