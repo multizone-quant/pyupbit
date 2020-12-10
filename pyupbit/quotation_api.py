@@ -2,7 +2,10 @@ import datetime
 import pandas as pd
 import sys
 
-from pyupbit.request_api import _call_public_api
+if __name__ == "__main__":
+    from request_api import _call_public_api
+else :
+    from pyupbit.request_api import _call_public_api
 
 
 
@@ -144,7 +147,7 @@ def get_current_price(ticker=["KRW-BTC"]):
 
 # added by me 2020/12/06
 # upbit에서 주는 ticker의 현재 가격 전체를 돌려준다.
-def get_current_ticker_info(ticker=["KRW-BTC"]):
+def get_current_ticker_info(tickers='KRW'):
     """
     최종 체결 가격 조회 (현재가)
     :param ticker:
@@ -152,7 +155,7 @@ def get_current_ticker_info(ticker=["KRW-BTC"]):
     """
     try:
         url = "https://api.upbit.com/v1/ticker"
-        contents = _call_public_api(url, markets=ticker)
+        contents = _call_public_api(url, markets=tickers)
 
         if contents is not None:
             # 여러 마케을 동시에 조회
@@ -193,7 +196,6 @@ if __name__ == "__main__":
     print(get_tickers())
     print(get_tickers(fiat="KRW"))
     # print(get_tickers(fiat="BTC"))
-    # print(get_tickers(fiat="ETH"))
     # print(get_tickers(fiat="USDT"))
 
     print(get_ohlcv("KRW-BTC"))
@@ -210,8 +212,16 @@ if __name__ == "__main__":
     #print(get_daily_ohlcv_from_base("KRW-BTC", base=9))
     #print(get_ohlcv("KRW-BTC", interval="day", count=5))
 
-    #print(get_current_price("KRW-BTC"))
-    #print(get_current_price(["KRW-BTC", "KRW-XRP"]))
+    print('== cur price info ==')
+    print(get_current_price(["KRW-BTC"]))
+    print(get_current_price(["KRW-BTC", "KRW-XRP"]))
 
-    #print(get_orderbook(tickers=["KRW-BTC"]))
+    print('== cur ticker info ==')
+    infos = get_current_ticker_info(tickers=["KRW-BTC", "KRW-ETH"])
+    print(infos)
+    for ticker, val in infos[0].items() :
+        print(val['trade_time'], val['market'], val['trade_price'])
+
+    print('== order book ==')
+    print(get_orderbook(tickers=["KRW-BTC"]))
     #print(get_orderbook(tickers=["KRW-BTC", "KRW-XRP"]))
