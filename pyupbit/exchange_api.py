@@ -2,7 +2,10 @@ import jwt
 import time
 from urllib.parse import urlencode
 
-from pyupbit.request_api import _send_get_request, _send_post_request, _send_delete_request
+if __name__ == "__main__":
+    from request_api import _send_get_request, _send_post_request, _send_delete_request
+else :
+    from pyupbit.request_api import _send_get_request, _send_post_request, _send_delete_request
 
 
 def get_tick_size(price):
@@ -45,7 +48,7 @@ class Upbit:
         return headers
 
     # region balance
-    def get_balances(self, contain_req=False):
+    def get_balance_all(self, contain_req=False):
         """
         전체 계좌 조회
         :param contain_req: Remaining-Req 포함여부
@@ -61,11 +64,14 @@ class Upbit:
             else:
                 return result[0]
         except Exception as x:
+            print(x)
             print(x.__class__.__name__)
             return None
 
-    def get_balance(self, ticker="KRW", contain_req=False):
+    # ticker == 'ALL'이면 전체, 아니면 특정 ticker
+    def get_balances(self, ticker="KRW", contain_req=False):
         """
+        수정함
         특정 코인/원화의 잔고 조회
         :param ticker: 화폐를 의미하는 영문 대문자 코드
         :param contain_req: Remaining-Req 포함여부
@@ -77,21 +83,26 @@ class Upbit:
             if '-' in ticker:
                 ticker = ticker.split('-')[1]
 
-            result = self.get_balances(contain_req=True)
-            balances = result[0]
-            req = result[1]
+            ret = self.get_balance_all(contain_req=True)
+            balances = ret[0]
+            req = ret[1]
 
+            result = []
             for x in balances:
-                if x['currency'] == ticker:
-                    balance = float(x['balance'])
+                bal = {'ticker':x['currency'], 'total':float(x['locked'])+float(x['balance']), 'orderable':float(x['balance'])}
+                if ticker == 'ALL' :
+                    result.append(bal)
+                elif x['currency'] == ticker:
+                    result.append(bal)
                     break
             if contain_req:
-                return balance, req
+                return result, req
             else:
-                return balance
+                return result
         except Exception as x:
             print(x.__class__.__name__)
-            return None
+            return [{'error':{'message':'err get_balance'}}]
+            
 
     def get_balance_t(self, ticker='KRW', contain_req=False):
         """
@@ -160,6 +171,8 @@ class Upbit:
         :return: 매수금액
         [contain_req == True 일 경우 Remaining-Req가 포함]
         """
+        # not supported 
+        return 0
         try:
             # KRW-BTC
             if '-' in ticker:
@@ -171,6 +184,7 @@ class Upbit:
 
             amount = 0
             for x in balances:
+                print(x)
                 if x['currency'] == 'KRW':
                     continue
 
@@ -241,7 +255,7 @@ class Upbit:
             else:
                 return result[0]
         except Exception as x:
-            print(x.__class__.__name__)
+            print(x.__class__.__name__, x)
             return None
 
     def buy_market_order(self, ticker, price, contain_req=False):
@@ -341,7 +355,7 @@ class Upbit:
     def get_order(self, ticker, state='wait', kind='normal', contain_req=False):
         """
         주문 리스트 조회
-        :param ticker: market
+        :param ticker: market  수정함 'ALL' 추가
         :param state: 주문 상태(wait, done, cancel)
         :param kind: 주문 유형(normal, watch)
         :param contain_req: Remaining-Req 포함여부
@@ -350,11 +364,14 @@ class Upbit:
         # TODO : states, uuids, identifiers 관련 기능 추가 필요
         try:
             url = "https://api.upbit.com/v1/orders"
-            data = {'market': ticker,
+            data = {
                     'state': state,
                     'kind': kind,
                     'order_by': 'desc'
                     }
+            if ticker != 'ALL' :
+                data['market'] = ticker
+
             headers = self._request_headers(data)
             result = _send_get_request(url, headers=headers, data=data)
             if contain_req:
@@ -368,7 +385,7 @@ class Upbit:
 
 
 if __name__ == "__main__":
-    with open("../upbit.txt") as f:
+    with open("..\\upbit.txt") as f:
         lines = f.readlines()
         access = lines[0].strip()
         secret = lines[1].strip()
@@ -379,27 +396,54 @@ if __name__ == "__main__":
     # 모든 잔고 조회
     # print(upbit.get_balances())
 
-    # 원화 잔고 조회
-    print(upbit.get_balance(ticker="KRW"))
-    print(upbit.get_amount('ALL'))
-    # print(upbit.get_balance(ticker="KRW-BTC"))
-    print(upbit.get_balance(ticker="KRW-XRP"))
+    # 잔고 조회
+    print('== balance ex == ')
+    bals = upbit.get_balances(ticker="KRW") # 원화 잔고
+    bal = bals[0]
+    if 'error' in bal :
+        print(bal['error']['message']) 
+    else :
+        print(bal['ticker'], bal['total'], bal['orderable'])
 
-    print(upbit.get_chance('KRW-HBAR'))
+    bals = upbit.get_balances(ticker="KRW-STEEM") # 특정 코인
+    bal = bals[0]
+    if 'error' in bal :
+        print(bal['error']['message']) 
+    else :
+        print(bal['ticker'], bal['total'], bal['orderable'])
 
-    print(upbit.get_order('KRW-BTC'))
+    bals = upbit.get_balances(ticker="ALL") # 모든 잔고
+    bal = bals[0]
+    if 'error' in bal :
+        print(bal['error']['message']) 
+    else :
+        for bal in bals :
+            print(bal['ticker'], bal['total'], bal['orderable'])
 
-    # 매도
-    # print(upbit.sell_limit_order("KRW-XRP", 1000, 20))
+    if 0: # not supported right now
+        print(upbit.get_amount('ALL'))  
+        print(upbit.get_chance('KRW-HBAR'))
 
-    # 매수
-    # print(upbit.buy_limit_order("KRW-XRP", 200, 20))
+    print('-- get_order --')
+    orders = upbit.get_order('KRW-BTC')
+    if 'error' in orders :
+        print(bal['error']['message']) 
+    else :
+        print (orders[0])
+        for ord in orders :
+            print(ord['market'], ord['uuid'], ord['side'], ord['price'], ord['remaining_volume'])
+    if 0:
+        #매도
+        print(upbit.sell_limit_order("KRW-XRP", 1000, 20))
 
-    # 주문 취소
-    # print(upbit.cancel_order('82e211da-21f6-4355-9d76-83e7248e2c0c'))
+        # 매수
+        print(upbit.buy_limit_order("KRW-XRP", 200, 20))
 
-    # 시장가 주문 테스트
-    # upbit.buy_market_order("KRW-XRP", 10000)
+        # 주문 취소
+        print(upbit.cancel_order('82e211da-21f6-4355-9d76-83e7248e2c0c'))
 
-    # 시장가 매도 테스트
-    # upbit.sell_market_order("KRW-XRP", 36)
+        # 시장가 주문 테스트
+        upbit.buy_market_order("KRW-XRP", 10000)
+
+        # 시장가 매도 테스트
+        upbit.sell_market_order("KRW-XRP", 36)
